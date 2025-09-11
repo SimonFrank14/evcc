@@ -182,7 +182,7 @@ import "@h2d2/shopicons/es/regular/checkmark";
 import { distanceUnit } from "@/units";
 
 import formatter from "@/mixins/formatter";
-import { energyOptions } from "@/utils/energyOptions";
+import { energyOptions } from "@/utils/energyOptions.ts";
 import { defineComponent } from "vue";
 import PreconditionSelect from "./PreconditionSelect.vue";
 
@@ -225,18 +225,27 @@ export default defineComponent({
 		},
 		socOptions() {
 			// a list of entries from 5 to 100 with a step of 5
-			return Array.from(Array(20).keys())
+			const options = Array.from(Array(20).keys())
 				.map((i) => 5 + i * 5)
 				.map(this.socOption);
+
+			// add current soc value if it's not in the list
+			if (this.selectedSoc && !options.find((o) => o.value === this.selectedSoc)) {
+				options.push(this.socOption(this.selectedSoc));
+				options.sort((a, b) => a.value - b.value);
+			}
+
+			return options;
 		},
 		energyOptions() {
 			const options = energyOptions(
 				0,
 				this.capacity || 100,
-				this.socPerKwh,
 				this.fmtWh,
 				this.fmtPercentage,
-				"-"
+				"-",
+				this.socPerKwh,
+				this.selectedEnergy
 			);
 			// remove the first entry (0)
 			return options.slice(1);

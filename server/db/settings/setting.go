@@ -16,7 +16,7 @@ import (
 
 	"github.com/evcc-io/evcc/server/db"
 	"github.com/evcc-io/evcc/util"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -78,7 +78,7 @@ func Delete(key string) error {
 			return err
 		}
 
-		settings = slices.Delete(settings, idx, idx)
+		settings = slices.Delete(settings, idx, idx+1)
 	}
 
 	return nil

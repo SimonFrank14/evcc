@@ -185,9 +185,9 @@ import TemplateSelector, { customTemplateOption } from "./DeviceModal/TemplateSe
 import DeviceModalActions from "./DeviceModal/Actions.vue";
 import YamlEntry from "./DeviceModal/YamlEntry.vue";
 import { initialTestState, performTest } from "./utils/test";
+import { ConfigType } from "@/types/evcc";
 import {
 	handleError,
-	ConfigType,
 	type DeviceValues,
 	type Template,
 	type Product,
@@ -291,10 +291,16 @@ export default defineComponent({
 			return params;
 		},
 		normalParams() {
-			return this.templateParams.filter((p) => !p.Advanced && !p.Deprecated);
+			return this.templateParams.filter(
+				(p) =>
+					!p.Advanced && !p.Deprecated && (p.Usages ? p.Usages.includes("vehicle") : true)
+			);
 		},
 		advancedParams() {
-			return this.templateParams.filter((p) => p.Advanced || p.Deprecated);
+			return this.templateParams.filter(
+				(p) =>
+					(p.Advanced || p.Deprecated) && (p.Usages ? p.Usages.includes("vehicle") : true)
+			);
 		},
 		description() {
 			return this.template?.Requirements?.Description;
@@ -312,6 +318,7 @@ export default defineComponent({
 			// remove icon if custom
 			if (this.values.type === ConfigType.Custom) {
 				delete data["icon"];
+				delete data["title"];
 			}
 			// trim and remove empty lines
 			if (Array.isArray(data["identifiers"])) {
@@ -333,9 +340,9 @@ export default defineComponent({
 				{ length: 11 },
 				(_, i) => ({ key: i, name: `${i}` })
 			);
-			result[0].name = "0 (default)";
-			result[0].key = undefined;
-			result[10].name = "10 (highest)";
+			result[0]!.name = "0 (default)";
+			result[0]!.key = undefined;
+			result[10]!.name = "10 (highest)";
 			return result;
 		},
 		showActions() {

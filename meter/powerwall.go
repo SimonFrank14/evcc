@@ -31,7 +31,7 @@ func init() {
 	registry.Add("powerwall", NewPowerWallFromConfig)
 }
 
-//go:generate go tool decorate -f decoratePowerWall -b *PowerWall -r api.Meter -t "api.MeterEnergy,TotalEnergy,func() (float64, error)" -t "api.Battery,Soc,func() (float64, error)" -t "api.BatteryCapacity,Capacity,func() float64" -t "api.BatteryController,SetBatteryMode,func(api.BatteryMode) error"
+//go:generate go tool decorate -f decoratePowerWall -b *PowerWall -r api.Meter -t "api.MeterEnergy,TotalEnergy,func() (float64, error)" -t "api.Battery,Soc,func() (float64, error)" -t "api.BatteryCapacity,Capacity,func() float64" -t "api.BatterySocLimiter,GetSocLimits,func() (float64, float64)" -t "api.BatteryController,SetBatteryMode,func(api.BatteryMode) error"
 
 // NewPowerWallFromConfig creates a PowerWall Powerwall Meter from generic config
 func NewPowerWallFromConfig(other map[string]interface{}) (api.Meter, error) {
@@ -143,10 +143,13 @@ func NewPowerWall(uri, usage, user, password string, cache time.Duration, refres
 	}
 
 	// decorate battery
-	var batterySoc func() (float64, error)
 	var batteryCapacity func() float64
+	var batterySoc func() (float64, error)
+	var batterySocLimiter func() (float64, float64)
+
 	if usage == "battery" {
 		batterySoc = m.batterySoc
+		batterySocLimiter = batterySocLimits.Decorator()
 
 		res, err := m.client.GetSystemStatus()
 		if err != nil {
@@ -162,11 +165,18 @@ func NewPowerWall(uri, usage, user, password string, cache time.Duration, refres
 	var batModeS func(api.BatteryMode) error
 	if batteryControl {
 		batModeS = batterySocLimits.LimitController(m.socG, func(limit float64) error {
-			return m.energySite.SetBatteryReserve(uint64(limit))
+			// Handle Tesla firmware 25.18.4 restrictions:
+			// Values between 81-99% are not allowed, only ≤80% or exactly 100%
+			limitUint := uint64(limit)
+			if limitUint > 80 && limitUint < 100 {
+				// Adjust to maximum allowed (80%)
+				limitUint = 80
+			}
+			return m.energySite.SetBatteryReserve(limitUint)
 		})
 	}
 
-	return decoratePowerWall(m, totalEnergy, batterySoc, batteryCapacity, batModeS), nil
+	return decoratePowerWall(m, totalEnergy, batterySoc, batteryCapacity, batterySocLimiter, batModeS), nil
 }
 
 var _ api.Meter = (*PowerWall)(nil)
@@ -220,6 +230,8 @@ func (m *PowerWall) socG() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	currentSoc := math.Round(ess.PercentageCharged + 0.5) // .5 ensures we round up
-	return currentSoc, nil
+	// Fix for Tesla firmware 25.18.4: Remove the problematic +0.5 rounding logic
+	// that was interfering with exact 100% reserve settings. Simply return the
+	// actual current SOC rounded to nearest integer.
+	return math.Round(ess.PercentageCharged), nil
 }
