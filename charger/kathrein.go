@@ -18,11 +18,12 @@ package charger
 // SOFTWARE.
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
-	"time"
+	"strings"
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/util"
@@ -307,29 +308,11 @@ func (wb *Kathrein) Voltages() (float64, float64, float64, error) {
 	return wb.getPhaseValues(kathreinRegVoltages, 1)
 }
 
-var _ api.ChargeTimer = (*Kathrein)(nil)
+// removed since broken, see https://github.com/evcc-io/evcc/pull/25934
+// var _ api.ChargeTimer = (*Kathrein)(nil)
 
-// ChargeDuration implements the api.ChargeTimer interface
-func (wb *Kathrein) ChargeDuration() (time.Duration, error) {
-	b, err := wb.conn.ReadHoldingRegisters(kathreinRegChargingDuration, 2)
-	if err != nil {
-		return 0, err
-	}
-
-	return time.Duration(binary.BigEndian.Uint32(b)) * time.Second, nil
-}
-
-var _ api.ChargeRater = (*Kathrein)(nil)
-
-// ChargedEnergy implements the api.ChargeRater interface
-func (wb *Kathrein) ChargedEnergy() (float64, error) {
-	b, err := wb.conn.ReadHoldingRegisters(kathreinRegChargingEnergy, 2)
-	if err != nil {
-		return 0, err
-	}
-
-	return float64(binary.BigEndian.Uint32(b)) / 1e3, err
-}
+// removed since broken, see https://github.com/evcc-io/evcc/pull/25427
+// var _ api.ChargeRater = (*Kathrein)(nil)
 
 var _ api.MeterEnergy = (*Kathrein)(nil)
 
@@ -399,20 +382,46 @@ func (wb *Kathrein) GetPhases() (int, error) {
 	}
 }
 
+var _ api.StatusReasoner = (*Kathrein)(nil)
+
+// StatusReason implements the api.StatusReasoner interface
+func (wb *Kathrein) StatusReason() (api.Reason, error) {
+	res := api.ReasonUnknown
+
+	b, err := wb.conn.ReadHoldingRegisters(kathreinRegChargingState, 1)
+	if err == nil && binary.BigEndian.Uint16(b) == 2 {
+		res = api.ReasonWaitingForAuthorization
+	}
+
+	return res, err
+}
+
 var _ api.Identifier = (*Kathrein)(nil)
 
 // Identify implements the api.Identifier interface
 func (wb *Kathrein) Identify() (string, error) {
-	b, err := wb.conn.ReadHoldingRegisters(kathreinRegRfid, 16)
+	s, err := wb.conn.ReadHoldingRegisters(kathreinRegChargingState, 1)
 	if err != nil {
 		return "", err
 	}
 
-	if string(b) == "VOID" {
+	state := binary.BigEndian.Uint16(s)
+	if state < 3 || state > 6 {
 		return "", nil
 	}
 
-	return string(b), nil
+	b, err := wb.conn.ReadHoldingRegisters(kathreinRegRfid, 24)
+	if err != nil {
+		return "", err
+	}
+
+	rfid := string(bytes.TrimRight(b, "\x00"))
+
+	if strings.HasPrefix(rfid, "RFID:") {
+		return rfid[5:], nil
+	}
+
+	return rfid, nil
 }
 
 var _ api.Diagnosis = (*Kathrein)(nil)

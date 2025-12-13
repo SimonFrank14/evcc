@@ -19,7 +19,6 @@ var (
 
 func New(driver, dsn string) (*gorm.DB, error) {
 	var dialect gorm.Dialector
-	log := util.NewLogger("db")
 
 	switch driver {
 	case "sqlite":
@@ -30,11 +29,12 @@ func New(driver, dsn string) (*gorm.DB, error) {
 
 		// Store the expanded file path for later use
 		FilePath = file
-
-		log.INFO.Println("using sqlite database:", file)
 		if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 			return nil, err
 		}
+
+		util.NewLogger("main").INFO.Println("using sqlite database:", file)
+
 		// avoid busy errors
 		dialect = sqlite.Open(file + "?_pragma=busy_timeout(5000)")
 	// case "postgres":
@@ -46,13 +46,28 @@ func New(driver, dsn string) (*gorm.DB, error) {
 	}
 
 	return gorm.Open(dialect, &gorm.Config{
-		Logger: &Logger{log},
+		Logger: &Logger{util.NewLogger("db")},
 	})
 }
 
-func NewInstance(driver, dsn string) (err error) {
-	Instance, err = New(strings.ToLower(driver), dsn)
-	return
+func NewInstance(driver, dsn string) error {
+	inst, err := New(strings.ToLower(driver), dsn)
+	if err != nil {
+		return err
+	}
+
+	Instance = inst
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, f := range registry {
+		if err := f(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func Close() error {
