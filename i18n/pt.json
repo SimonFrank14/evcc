@@ -1,4 +1,24 @@
 {
+  "authProviders": {
+    "authCode": "Código de autorização",
+    "authCodeHelp": "Copie este código e utilize-o na próxima etapa. Válido por {duration}.",
+    "authorizationFailed": "A autorização falhou",
+    "authorizationRequired": "Autorização necessária",
+    "authorizationSuccessful": "Autorização bem-sucedida",
+    "buttonConnect": "Conectar-se ao {provider}",
+    "buttonDisconnect": "Desconectar",
+    "confirmLogout": "Tem a certeza de que deseja desconectar {title}?",
+    "connect": "conectar",
+    "disconnect": "desconectar",
+    "loggedOut": "Sessão encerrada com sucesso",
+    "logoutFailed": "Não foi possível sair da conta",
+    "modalDescriptionLogin": "Conclua o processo de autorização para estabelecer a ligação com {provider}.",
+    "modalDescriptionLogout": "Isso irá desconectar a sua conta {provider} e remover o acesso aos seus dados.",
+    "success": "{title} está agora conectado e pronto a ser utilizado.",
+    "successCloseModal": "Agora pode fechar esta caixa de diálogo.",
+    "successCloseTab": "Pode agora fechar esta guia.",
+    "title": "Estado da autorização"
+  },
   "batterySettings": {
     "batteryLevel": "Carga da bateria",
     "bufferStart": {
@@ -40,8 +60,16 @@
       "chargers": "Carregadores de Veículos Eléctricos",
       "generic": "Integrações genéricas",
       "heatingdevices": "Equipamentos de aquecimento",
-      "ocppHelp": "Copie este endereço para a configuração do seu carregador.",
+      "ocppConfirmContinue": "O seu carregador ainda não está conectado ao evcc. Tem a certeza de que deseja continuar?",
+      "ocppConnected": "Conectado!",
+      "ocppDescription": "O evcc possui um servidor OCPP integrado. Siga estas etapas:",
+      "ocppHelp": "Copie este URL para a configuração do seu carregador. Consulte o manual do fabricante para obter detalhes. O carregador adicionará automaticamente seu identificador único (ID da estação) ao URL. Em casos raros, pode ser necessário especificar o identificador manualmente. Exemplo: `{url}`",
       "ocppLabel": "URL do servidor OCPP",
+      "ocppNextStep": "Próxima etapa",
+      "ocppStep1": "Configure o seu carregador para utilizar o evcc como servidor OCPP.",
+      "ocppStep2": "Aguarde até que o carregador se conecte ao evcc.",
+      "ocppStep3": "Continue e conclua a configuração.",
+      "ocppWaiting": "Aguardando conexão",
       "switchsockets": "Tomadas comandadas",
       "template": "Fabricante",
       "titleAdd": {
@@ -71,8 +99,8 @@
     },
     "control": {
       "description": "Normalmente funciona com os valores padrão. Mude-os apenas se sabe o que está a fazer.",
-      "descriptionInterval": "Intervalo de atualização do loop de controlo em segundos. Define com que frequência o evcc lê dados do contador, ajusta o poder de carregamento e atualiza a interface do usuário. Intervalos curtos (< 30s) podem causar oscilações e comportamentos indesejados.",
-      "descriptionResidualPower": "Altera o ponto de operação do circuito de controle. Se você tem uma bateria em casa, é recomendável definir um valor de 100 W. Assim, a bateria terá uma ligeira prioridade sobre o uso da Rede.",
+      "descriptionInterval": "Ciclo de atualização em segundos. Define a frequência com que o evcc lê os dados do medidor e ajusta a cobrança. O padrão de 30 segundos é uma escolha segura. Dispositivos como veículos, wallboxes e inversores normalmente precisam de vários segundos para ajustar o seu comportamento. Se os seus componentes reagem rapidamente, pode usar valores mais baixos. Recomendamos fortemente não ir abaixo de 10 segundos. Se observar um comportamento de controlo irregular ou valores de potência instáveis, escolha um intervalo maior.",
+      "descriptionResidualPower": "Altera o ponto de operação do circuito de controlo. Se tiver uma bateria doméstica, recomenda-se definir um valor de 100 W. Desta forma, a bateria terá uma ligeira prioridade sobre a utilização da rede.",
       "labelInterval": "Intervalo das actualizações",
       "labelResidualPower": "Potência residual",
       "title": "Comportamento de controlo"
@@ -91,10 +119,12 @@
       "chargedEnergy": "Carregado",
       "co2": "Rede CO₂",
       "configured": "Configurado",
+      "connections": "Conexões",
       "controllable": "Controlável",
       "currency": "Moeda",
       "current": "Corrente",
       "currentRange": "Corrente",
+      "detected": "Detectado",
       "dimmed": "Escurecido",
       "enabled": "Ativado",
       "energy": "Energia",
@@ -107,9 +137,9 @@
       "no": "não",
       "odometer": "Totalizador Km",
       "org": "Organização",
-      "phaseCurrents": "Corrente L1, L2, L3",
-      "phasePowers": "Energia L1, L2, L3",
-      "phaseVoltages": "Voltagem L1, L2, L3",
+      "phaseCurrents": "Corrente",
+      "phasePowers": "Energia",
+      "phaseVoltages": "Voltagem",
       "phases1p3p": "Comutador de fases",
       "power": "Energia em tempo real",
       "powerRange": "Potência",
@@ -142,8 +172,28 @@
       "loading": "A carregar editor YAML…"
     },
     "eebus": {
-      "description": "Configuração que permite o evcc comunicar com outros dispositivos EEBus.",
+      "certificate": {
+        "private": "Chave privada",
+        "public": "Certificado publico",
+        "title": "Certificados"
+      },
+      "description": "Configuração que permite o evcc comunicar com outros dispositivos compatíveis com EEBus, como carregadores ou unidades de controlo do operador de rede. Toda a inicialização e geração de certificados é feita automaticamente na primeira inicialização.",
+      "descriptionAdvanced": "Não são necessárias alterações. Somente altere se souber realmente o que está a fazer. Se mudar quer o SHIP-id ou os certificados, terá que emparelhar novamente os seus dispositivos.",
+      "interfaces": "Interfaces",
+      "interfacesHelp": "Limitar as interfaces que o EEBus pode usar para evitar problemas de comunicação. Deixar em branco para usar todas as interfaces. Um entrada por linha.",
+      "port": "Porta",
+      "portHelp": "Porta a usar.",
+      "removeConfirm": "Toda a configuração EEBus será eliminada. Serão gerados novos certificados e identificadores na próxima inicialização. Tem a certeza?",
+      "shipid": "SHIP-ID",
+      "shipidExplain": "Identificador permanente do dispositivo a ser usado dentro da rede EEBus.",
+      "shipidHelp": "Este SHIP-ID está vinculado ao certificado abaixo.",
+      "ski": "SKI",
+      "skiExplain": "Identificador de segurança único para o emparelhamento de dispositivos EEBus.",
       "title": "EEBus"
+    },
+    "experimental": {
+      "description": "Fornece acesso antecipado a funcionalidades que ainda estão a ser testadas. Estas podem ser instáveis e podem ser alteradas ou removidas em versões futuras.",
+      "title": "Experimental"
     },
     "ext": {
       "description": "Regista os valores de energia dos consumidores não controlados (por exemplo, frigorífico, máquina de lavar roupa, etc.) para fins estatísticos. Estes medidores também podem ser utilizados para a gestão de carga (por exemplo, subdistribuição).",
@@ -164,6 +214,8 @@
       "cancel": "Cancelar",
       "clear": "Apagar",
       "close": "Fechar",
+      "copied": "Copiado!",
+      "copy": "Copiar",
       "customHelp": "Criar um dispositivo definido pelo utilizador utilizando o sistema de plugins do evcc.",
       "customOption": "Dispositivo definido pelo utilizador",
       "delete": "Apagar",
@@ -171,8 +223,10 @@
       "dragHandle": "Arrastar",
       "dragItem": "Arrastável: {title}",
       "dragList": "Lista reordenável",
+      "error": "Erro",
       "experimental": "Experimental",
       "forceSave": "Guardar na mesma",
+      "fromYamlHint": "Nota: Configurado através do evcc.yaml. Remova a entrada do ficheiro para permitir a edição aqui.",
       "hideAdvancedSettings": "Ocultar definições avançadas",
       "invalidFileSelected": "Ficheiro selecionado inválido",
       "noFileSelected": "Nenhum ficheiro selecionado.",
@@ -200,8 +254,18 @@
       "titleEdit": "Editar Contator de Rede"
     },
     "hems": {
-      "description": "Limitação da potência por sistemas externos (por exemplo, controladores EnWG 14a). Requer configuração de gestão de carga.",
-      "title": "HEMS"
+      "csv": {
+        "created": "Criado",
+        "finished": "Terminado",
+        "gridpower": "Potência da rede (kW)",
+        "limitpower": "Limite (kW)",
+        "type": "Tipo"
+      },
+      "description": "Limitação de potência por sistemas externos (por exemplo, §14a EnWG, §9 EEG interface ou sistema de gestão de energia de nível superior). Funciona em conjunto com a funcionalidade de gestão de carga.",
+      "downloadCsv": "Descarregar CSV",
+      "eventsRecorded": "Registou {count} eventos de limitação da rede.",
+      "lastEvent": "Mais recente {timeAgo}.",
+      "title": "Limite externo"
     },
     "icon": {
       "change": "alterar",
@@ -247,6 +311,7 @@
       "chargerTypeLabel": "Tipo de Carregador",
       "chargingTitle": "Comportamento",
       "circuitHelp": "Atribuição de gestão de carga para garantir que os limites de potência e corrente não são excedidos.",
+      "circuitInvalid": "O circuito não existe",
       "circuitLabel": "Circuito",
       "circuitUnassigned": "não atribuído",
       "defaultModeHelp": {
@@ -323,6 +388,7 @@
       "vehicleAutoDetection": "detecção automática",
       "vehicleHelpAutoDetection": "Seleciona automaticamente o veículo mais provável. É possível cancelar manualmente.",
       "vehicleHelpDefault": "Presumir sempre que este veículo está a carregar aqui. Detecção automática desativada. É possível a desativação manual.",
+      "vehicleInvalid": "O veículo não existe",
       "vehicleLabel": "Veículo predefinido",
       "vehiclesTitle": "Veículos"
     },
@@ -340,7 +406,8 @@
       "title": "Configuração",
       "unconfigured": "não configurado",
       "vehicles": "Os meus Veículos",
-      "yaml": "Os dispositivos de evcc.yaml não são editáveis."
+      "welcomeBannerText": "Comece por criar pelo menos um **carregador**, **aquecedor**, **rede**, **solar**, **bateria** ou **medidor adicional**. Se quiser apenas testar, escolha um **dispositivo de demonstração**.",
+      "welcomeBannerTitle": "Configuremos agora o seu sistema!"
     },
     "messaging": {
       "description": "Receber mensagens sobre as sessões de carregamento.",
@@ -375,9 +442,9 @@
       "baudrate": "Baud rate",
       "comset": "ComSet",
       "connection": "Ligação Modbus",
-      "connectionHintSerial": "O dispositivo está ligado diretamente ao evcc via RS485.",
-      "connectionHintTcpip": "O dispositivo está acessível ao evcc via LAN/WIFI.",
-      "connectionValueSerial": "Serial / USB",
+      "connectionHintSerial": "O dispositivo é conectado diretamente via RS485 (ou adaptador USB para RS485).",
+      "connectionHintTcpip": "O dispositivo pode ser acedido através da rede (LAN/WiFi).",
+      "connectionValueSerial": "RS485",
       "connectionValueTcpip": "Rede Informática",
       "device": "Nome do dispositivo",
       "deviceHint": "Exemplo: /dev/ttyUSB0",
@@ -443,6 +510,23 @@
       "labelSchema": "Esquema",
       "title": "Rede"
     },
+    "ocpp": {
+      "connectedChargers": "Carregadores conectados",
+      "connectionStatus": "IDs de estações configuradas",
+      "connectionStatusHelp": "Estado da ligação dos carregadores configurados.",
+      "detectedChargers": "IDs de estações detetadas",
+      "detectedHelp": "Estes carregadores tentaram ligar-se ao evcc. Para utilizar um carregador, crie um ponto de carga com o seu ID de estação.",
+      "noChargers": "Não foram detectados carregadores OCPP.",
+      "noStations": "Nenhuma estação conectada",
+      "status": {
+        "configured": "Não conectado",
+        "connected": "Conectado",
+        "unknown": "Desconhecido"
+      },
+      "title": "Servidor OCPP",
+      "url": "URL do Servidor",
+      "urlHelp": "Copie este URL para a configuração do seu carregador. Consulte o manual do fabricante para obter mais detalhes. O carregador deve anexar automaticamente o seu identificador único (ID da estação) ao URL. Em casos raros, pode ser necessário especificar manualmente o identificador. Exemplo: `{url}`"
+    },
     "options": {
       "boolean": {
         "no": "não",
@@ -477,6 +561,7 @@
       "integrations": "Integrações",
       "loadpoints": "Carregamento e aquecimento",
       "meter": "Solar e Bateria",
+      "services": "Serviços",
       "system": "Sistema",
       "vehicles": "Veículos"
     },
@@ -584,6 +669,8 @@
       "maximumCurrentHelp": "Deve ser superior à corrente mínima.",
       "maximumPhases": "Máximo de fases",
       "maximumPhasesHelp": "Com quantas fases pode carregar este veículo? A informação é utilizada para calcular o excedente solar mínimo necessário e a duração do plano.",
+      "maximumPower": "Potência máxima de carregamento",
+      "maximumPowerHelp": "Potência máxima que o veículo pode consumir",
       "minimumCurrent": "Corrente mínima",
       "minimumCurrentHelp": "Somente ir abaixo de 6A se souber o que está a fazer.",
       "online": "Veículos com API online",
@@ -671,12 +758,14 @@
   "forecast": {
     "co2": {
       "average": "Média",
+      "constant": "Intensidade de CO₂",
       "lowestHour": "Horário mais \"Verde\"",
       "range": "Intervalo"
     },
     "modalTitle": "Previsões",
     "price": {
       "average": "Média",
+      "constant": "Preço",
       "lowestHour": "Horário mais barato",
       "range": "Intervalo"
     },
@@ -693,6 +782,9 @@
       "price": "Preço",
       "solar": "Solar"
     }
+  },
+  "general": {
+    "note": "Nota:"
   },
   "header": {
     "about": "Sobre",
@@ -778,6 +870,8 @@
       "stepTwo": "Passo 2: Copie informações adicionais",
       "title": "Resumo do problema do GitHub"
     },
+    "system": "Sistema",
+    "timezone": "Fuso horário",
     "title": "Reportar um problema",
     "version": "Versão"
   },
@@ -816,16 +910,24 @@
       "goal": "Carga pretendida",
       "modalTitle": "Plano de carga",
       "none": "nenhum",
+      "optimization": {
+        "cheapest": "mais barato",
+        "continuous": "contínuo",
+        "label": "Otimização"
+      },
       "planNumber": "Plano {number}",
-      "preconditionDescription": "Carregar {duration} antes da partida para pré-condicionamento da bateria.",
-      "preconditionLong": "Carga tardia",
-      "preconditionOptionAll": "tudo",
-      "preconditionOptionNo": "não",
-      "preconditionShort": "Tarde",
+      "precondition": {
+        "description": "Carregar {duration} antes da partida para pré-condicionamento da bateria.",
+        "label": "Carga tardia",
+        "optionAll": "tudo",
+        "optionNo": "não"
+      },
       "remove": "Apagar",
       "repeating": "recorrente",
       "repeatingPlans": "Repetição de planos",
       "selectAll": "Selecionar tudo",
+      "strategyDisabledDescription": "O carregamento começa o mais tarde possível para terminar a tempo da partida. Com preços dinâmicos da rede ou tarifa de CO₂, há mais opções disponíveis aqui.",
+      "strategySettings": "Definições da estratégia",
       "time": "Hora",
       "title": "Plano",
       "titleMinSoc": "Carga mínima",
@@ -864,7 +966,7 @@
       "title": "Limite externo:"
     },
     "loadpoint": {
-      "avgPrice": "Preço",
+      "avgPrice": "Preço ⌀",
       "charged": "Carregado",
       "co2": "CO₂",
       "duration": "Duração",
@@ -879,7 +981,7 @@
     },
     "loadpointSettings": {
       "batteryBoost": {
-        "description": "Carga rápida da bateria de casa.",
+        "description": "Carga rápida da bateria de casa até que descarregue para {limit}.",
         "label": "Boost bateria",
         "mode": "Disponível apenas nos modos solar e min+solar.",
         "once": "Boost ativo para esta sessão de carga."
@@ -1034,7 +1136,6 @@
   "passwordModal": {
     "description": "Defina uma Palavra-passe para proteger as definições de configuração. Continua a ser possível utilizar o menu principal sem iniciar sessão.",
     "empty": "A Palavra-passe não deve ficar por preencher",
-    "error": "Erro: ",
     "labelCurrent": "Palavra-passe atual",
     "labelNew": "Nova Palavra-passe",
     "labelRepeat": "Repetir palavra-passe",
@@ -1060,7 +1161,7 @@
   },
   "sessions": {
     "avgPower": "Potência",
-    "avgPrice": "Preço",
+    "avgPrice": "Preço ⌀",
     "chargeDuration": "Duração",
     "chartTitle": {
       "avgCo2ByGroup": "CO₂ {byGroup}",
@@ -1148,7 +1249,7 @@
     },
     "hiddenFeatures": {
       "label": "Experimental",
-      "value": "Mostrar recursos experimentais."
+      "value": "Ativar funcionalidades experimentais."
     },
     "language": {
       "auto": "Automático",
