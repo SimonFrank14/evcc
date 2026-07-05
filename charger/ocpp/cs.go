@@ -9,6 +9,8 @@ import (
 	"github.com/evcc-io/evcc/util"
 	ocpp16 "github.com/lorenzodonini/ocpp-go/ocpp1.6"
 	"github.com/lorenzodonini/ocpp-go/ocpp1.6/core"
+	"github.com/lorenzodonini/ocpp-go/ocppj"
+	"github.com/lorenzodonini/ocpp-go/ws"
 )
 
 type registration struct {
@@ -29,6 +31,13 @@ type CS struct {
 	regs        map[string]*registration // guarded by mu mutex
 	txnId       atomic.Int64
 	publishFunc func()
+	server      ws.Server              // raw server, used by the forwarder to write frames
+	dispatcher  ocppj.ServerDispatcher // request dispatcher, timeout set at start
+}
+
+// Write sends a raw OCPP frame to the charger with the given station ID.
+func (cs *CS) Write(id string, data []byte) error {
+	return cs.server.Write(id, data)
 }
 
 type stationStatus struct {
@@ -163,7 +172,7 @@ func (cs *CS) RegisterChargepoint(id string, newfun func() *CP, init func(*CP) e
 	cs.mu.Unlock()
 
 	if registered {
-		cp.connect(true)
+		cp.onTransportConnect()
 	}
 
 	return cp, init(cp)
@@ -178,9 +187,9 @@ func (cs *CS) NewChargePoint(chargePoint ocpp16.ChargePointConnection) {
 	if ok {
 		cs.log.DEBUG.Printf("charge point connected: %s", chargePoint.ID())
 
-		// trigger initial connection
+		// wait for BootNotification before marking as connected
 		if cp := reg.cp; cp != nil {
-			cp.connect(true)
+			cp.onTransportConnect()
 		}
 
 		cs.mu.Unlock()
@@ -199,7 +208,7 @@ func (cs *CS) NewChargePoint(chargePoint ocpp16.ChargePointConnection) {
 		cs.regs[chargePoint.ID()] = reg
 		delete(cs.regs, "")
 
-		cp.connect(true)
+		cp.onTransportConnect()
 
 		cs.mu.Unlock()
 		cs.publish()
