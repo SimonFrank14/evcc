@@ -1,21 +1,10 @@
 package hems
 
-// API describes the HEMS system interface
+import "github.com/evcc-io/evcc/api"
+
+// API describes the HEMS system interface combining the runtime loop
+// with the api.HEMS state-query surface consumed by Circuit, Site and Loadpoint.
 type API interface {
+	api.HEMS
 	Run()
-	ConsumptionLimit() float64
-}
-
-type Status struct {
-	ConsumptionLimit float64 `json:"consumptionLimit"`
-	// FeedinLimit      float64 `json:"feedinLimit,omitempty"`
-}
-
-func GetStatus(api API) *Status {
-	if api == nil {
-		return nil
-	}
-	return &Status{
-		ConsumptionLimit: api.ConsumptionLimit(),
-	}
 }
