@@ -151,7 +151,13 @@
 							/>
 
 							<PropertyCollapsible>
-								<template v-if="advancedParams.length" #advanced>
+								<template v-if="advancedParams.length || modbus" #advanced>
+									<ModbusAdvanced
+										v-if="modbus"
+										v-model:delay="values['delay']"
+										v-model:timeout="values['timeout']"
+										component-id="device"
+									/>
 									<PropertyEntry
 										v-for="param in advancedParams"
 										:id="`${deviceType}Param${param.Name}`"
@@ -208,6 +214,7 @@ import ErrorMessage from "../../Helper/ErrorMessage.vue";
 import PropertyEntry from "../PropertyEntry.vue";
 import PropertyCollapsible from "../PropertyCollapsible.vue";
 import Modbus from "./Modbus.vue";
+import ModbusAdvanced from "./ModbusAdvanced.vue";
 import DeviceModalActions from "./Actions.vue";
 import Markdown from "../Markdown.vue";
 import SponsorTokenRequired from "./SponsorTokenRequired.vue";
@@ -250,6 +257,7 @@ export default defineComponent({
 		PropertyEntry,
 		PropertyCollapsible,
 		Modbus,
+		ModbusAdvanced,
 		DeviceModalActions,
 		Markdown,
 		SponsorTokenRequired,
@@ -293,8 +301,8 @@ export default defineComponent({
 		isTypeDeprecated: Function as PropType<(type: ConfigType) => boolean>,
 		// Optional: provide template options from parent (to avoid circular dependency)
 		provideTemplateOptions: Function as PropType<(products: Product[]) => TemplateGroup[]>,
-		// Optional: handle template change (receives event and values, allows setting values.yaml)
-		onTemplateChange: Function as PropType<(e: Event, values: DeviceValues) => void>,
+		// Optional: handle template change (receives selected value and values, allows setting values.yaml)
+		onTemplateChange: Function as PropType<(value: string, values: DeviceValues) => void>,
 		// Optional: default template to select when opening modal for new devices
 		defaultTemplate: String,
 		// Optional: callback after configuration is loaded (receives values)
@@ -829,11 +837,11 @@ export default defineComponent({
 			this.$emit("close");
 			this.isModalVisible = false;
 		},
-		handleTemplateChange(e: Event) {
+		handleTemplateChange(value: string | null) {
 			// ensure this triggers after tempateName watcher
 			this.$nextTick(() => {
-				if (this.onTemplateChange) {
-					this.onTemplateChange(e, this.values);
+				if (this.onTemplateChange && value !== null) {
+					this.onTemplateChange(value, this.values);
 				}
 			});
 		},
