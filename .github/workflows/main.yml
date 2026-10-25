@@ -69,7 +69,7 @@ jobs:
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image to ${{ env.RELEASE_VERSION }} and unstable
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         id: build-and-push-tag
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:

@@ -15,19 +15,21 @@ requirements:
       If you have a battery storage system, please be sure to use "Huawei SUN2000 Hybrid-Inverter".
       Needs "Modbus/TCP". Activation using "maintenance access" within the communication settings of the inverter.
       See https://forum.huawei.com/enterprise/en/modbus-tcp-guide/thread/667250677153415168-667213868771979264
+discovery:
+  hostname: ["sdongle*"]
 params:
   - name: usage
     choice: ["pv"]
   - name: modbus
     choice: ["rs485", "tcpip"]
+    timeout: 15s
   - name: timeout
-    default: 15s
+    deprecated: true
 render: |
   type: custom
   power:
     source: modbus
     {{- include "modbus" . | indent 2 }}
-    timeout: {{ .timeout }}
     connectdelay: 1s
     register:
       address: 32080 # Active generation power AC
@@ -36,7 +38,6 @@ render: |
   energy:
     source: modbus
     {{- include "modbus" . | indent 2 }}
-    timeout: {{ .timeout }}
     register:
       address: 32106 # Accumulated energy yield
       type: holding

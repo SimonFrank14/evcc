@@ -218,6 +218,14 @@ func TestSocBatteryStateReportField(t *testing.T) {
 	assert.Equal(t, 36.0, soc)
 }
 
+func TestSocEnyaqField(t *testing.T) {
+	data := []point{{Key: KeyEnyaqSoc, Name: "currentSoc", Value: "60"}}
+
+	soc, err := testProvider(data).Soc()
+	require.NoError(t, err)
+	assert.Equal(t, 60.0, soc)
+}
+
 func TestSocBatteryStateReportOnlyFallbackField(t *testing.T) {
 	data := []point{
 		{Key: KeyBatteryStateReportSoc, Name: "battery_state_report.soc", Value: "36"},
@@ -227,6 +235,36 @@ func TestSocBatteryStateReportOnlyFallbackField(t *testing.T) {
 	soc, err := testProvider(data).Soc()
 	require.NoError(t, err)
 	assert.Equal(t, 40.0, soc)
+}
+
+// TestGetLimitSocBcamThreshold reproduces issue #32241: the Audi Q4 e-tron
+// reports its battery care mode SoC limit only under the battery care mode
+// field, not under the generic target soc field, while battery care mode is
+// active.
+func TestGetLimitSocBcamThreshold(t *testing.T) {
+	data := []point{
+		{Name: FieldChargeBcamThreshold, Value: "80"},
+		{Name: FieldBcamActivation, Value: BcamActivationActivated},
+	}
+
+	limit, err := testProvider(data).GetLimitSoc()
+	require.NoError(t, err)
+	assert.Equal(t, int64(80), limit)
+}
+
+// TestGetLimitSocBcamThresholdInactive reproduces issue #32520: with battery
+// care mode inactive, the care mode threshold is unrelated to the actual
+// target soc and must not shadow it.
+func TestGetLimitSocBcamThresholdInactive(t *testing.T) {
+	data := []point{
+		{Name: FieldTargetSoc, Value: "100"},
+		{Name: FieldChargeBcamThreshold, Value: "80"},
+		{Name: FieldBcamActivation, Value: "BCAM_ACTIVATION_DEACTIVATED"},
+	}
+
+	limit, err := testProvider(data).GetLimitSoc()
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), limit)
 }
 
 // TestPoints guards that a data point with a generic field name ("value") is
@@ -241,4 +279,13 @@ func TestPoints(t *testing.T) {
 	assert.Equal(t, "317", find(data, KeyRangeID3).Value, "found by key")
 	assert.Equal(t, "317", find(data, "value").Value, "found by generic name")
 	assert.Equal(t, "22164", find(data, FieldOdometer).Value, "named field found by name")
+}
+
+func TestKeepData(t *testing.T) {
+	data := []point{{Value: "1"}}
+
+	assert.True(t, keepData(data, time.Now()), "recent success")
+	assert.False(t, keepData(data, time.Now().Add(-2*errorGrace)), "persistent failure")
+	assert.False(t, keepData(data, time.Time{}), "never succeeded")
+	assert.False(t, keepData(nil, time.Now()), "no data")
 }

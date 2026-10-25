@@ -26,7 +26,7 @@ export default {
 const baseState = {
   id: "1",
   title: "Carport",
-  mode: CHARGE_MODE.PV,
+  mode: CHARGE_MODE.SMART,
   enabled: true,
   connected: true,
   socBasedCharging: true,
@@ -192,4 +192,7 @@ Heating.args = {
   vehicleSoc: 48,
   effectiveLimitSoc: 60,
   vehicleLimitSoc: 65,
+  todayEnergy: 3200,
+  last24hEnergy: 4100,
+  last7dEnergy: 26500,
 };
