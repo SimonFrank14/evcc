@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"reflect"
@@ -54,11 +55,6 @@ func (c *configReq) UnmarshalJSON(data []byte) error {
 }
 
 func (c *configReq) Serialise() map[string]any {
-	if c.Yaml != "" {
-		return map[string]any{
-			"yaml": c.Yaml,
-		}
-	}
 	return c.Other
 }
 
@@ -69,8 +65,14 @@ func propsToMap(props config.Properties) (map[string]any, error) {
 	}
 
 	return lo.PickBy(res, func(k string, v any) bool {
-		if k == "Type" || v.(string) == "" {
+		if k == "Type" {
 			return false
+		}
+		switch val := v.(type) {
+		case string:
+			return val != ""
+		case bool:
+			return val
 		}
 		return true
 	}), nil
@@ -197,13 +199,17 @@ func deviceOtherFromHandler[T any](name string, h config.Handler[T]) (map[string
 	return dev.Config().Other, nil
 }
 
+// deviceTestTimeout limits the device configuration test. EEBus devices need
+// headroom for ship-go's connection backoff plus the SHIP handshake.
+const deviceTestTimeout = 15 * time.Second
+
 func startDeviceTimeout() (context.Context, context.CancelFunc, chan struct{}) {
 	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		select {
-		case <-time.After(10 * time.Second):
+		case <-time.After(deviceTestTimeout):
 			// timeout - cancel context
 			cancel()
 		case <-done:
@@ -245,8 +251,9 @@ func deviceInstanceFromMergedConfig[T any](ctx context.Context, id int, class te
 }
 
 type testResult = struct {
-	Value any    `json:"value"`
-	Error string `json:"error"`
+	Value  any    `json:"value"`
+	Error  string `json:"error"`
+	Asleep bool   `json:"asleep,omitempty"`
 }
 
 func hasFeature(instance any, f api.Feature) bool {
@@ -266,7 +273,12 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 			if errors.Is(err, api.ErrNotAvailable) {
 				return
 			}
-			tr.Error = err.Error()
+			// asleep is a valid vehicle state, not an error
+			if errors.Is(err, api.ErrAsleep) {
+				tr.Asleep = true
+			} else {
+				tr.Error = err.Error()
+			}
 		}
 		resMu.Lock()
 		res[key] = tr
@@ -324,8 +336,10 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 
 	wg.Go(func() {
 		if dev, ok := api.Cap[api.BatteryCapacity](instance); ok {
-			val := dev.Capacity()
-			makeResult("capacity", val, nil)
+			val, err := dev.Capacity()
+			makeResult("capacity", val, err)
+		} else if dev, ok := instance.(api.Vehicle); ok {
+			makeResult("capacity", dev.Capacity(), nil)
 		}
 	})
 
@@ -396,6 +410,12 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 	})
 
 	wg.Go(func() {
+		if hasFeature(instance, api.Continuous) {
+			makeResult("continuous", true, nil)
+		}
+	})
+
+	wg.Go(func() {
 		if dev, ok := api.Cap[api.IconDescriber](instance); ok && dev.Icon() != "" {
 			makeResult("icon", dev.Icon(), nil)
 		}
@@ -434,9 +454,45 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 
 	wg.Go(func() {
 		if dev, ok := api.Cap[api.Curtailer](instance); ok {
-			makeResult("curtailable", true, nil)
-			if val, err := dev.Curtailed(); err != nil || val {
-				makeResult("curtailed", true, err)
+			if _, isMeter := instance.(api.Meter); isMeter {
+				// curtailment as meter capability, limit only reported while actually curtailing
+				makeResult("curtailable", true, nil)
+				if val, err := dev.CurtailedPercent(); err != nil || val < 100 {
+					makeResult("curtailed", val, err)
+				}
+			} else {
+				// dedicated curtailment device, always report the limit
+				val, err := dev.CurtailedPercent()
+				makeResult("curtailed", val, err)
+			}
+		}
+	})
+
+	wg.Go(func() {
+		if dev, ok := api.Cap[api.HEMS](instance); ok {
+			if power := dev.MaxConsumptionPower(); power != nil && *power > 0 {
+				makeResult("dimLimit", *power, nil)
+			}
+			if percent := dev.CurtailedPercent(); percent != nil && *percent < 100 {
+				if limit := dev.MaxProductionPower(); limit != nil {
+					makeResult("curtailLimit", *limit, nil)
+				}
+			}
+		}
+	})
+
+	wg.Go(func() {
+		if dev, ok := api.Cap[api.Circuit](instance); ok {
+			if val := dev.GetMaxPower(); val > 0 {
+				makeResult("maxPower", val, nil)
+			}
+			if val := dev.GetMaxCurrent(); val > 0 {
+				makeResult("maxCurrent", val, nil)
+			}
+			if dev.HasMeter() {
+				err := dev.Update(nil)
+				makeResult("power", dev.GetChargePower(), err)
+				makeResult("current", dev.GetMaxPhaseCurrent(), err)
 			}
 		}
 	})
@@ -444,7 +500,7 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 	wg.Go(func() {
 		if dev, ok := api.Cap[api.Identifier](instance); ok {
 			val, err := dev.Identify()
-			makeResult("identifier", val, err)
+			makeResult("identifier", strings.Join(val, ", "), err)
 		}
 	})
 
@@ -464,6 +520,9 @@ func testInstance(ctx context.Context, instance any) map[string]testResult {
 			case api.TariffTypeSolar:
 				valueKey = "power"
 				ratesKey = "solarRates"
+			case api.TariffTypeTemperature:
+				valueKey = "outdoorTemp"
+				ratesKey = "temperatureRates"
 			default:
 				valueKey = "price"
 			}
@@ -530,6 +589,12 @@ func (maskedTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Val
 
 var criticalPluginSources = []string{"script"}
 
+// configUnchanged reports whether req matches the stored config, e.g. when only toggling deviceDisable
+func configUnchanged(id int, req configReq) bool {
+	stored, err := config.ConfigByID(id)
+	return err == nil && reflect.DeepEqual(req.Serialise(), stored.Data)
+}
+
 func configHasCriticalPlugin(req configReq) bool {
 	if req.Yaml != "" {
 		// any, not map: global yaml configs (circuits) are a list
@@ -537,7 +602,9 @@ func configHasCriticalPlugin(req configReq) bool {
 		if err := yaml.Unmarshal([]byte(req.Yaml), &m); err != nil {
 			return false // malformed yaml already rejected by decodeDeviceConfig
 		}
-		return valueHasCriticalSource(m)
+		if valueHasCriticalSource(m) {
+			return true
+		}
 	}
 	return valueHasCriticalSource(req.Other)
 }
@@ -562,7 +629,7 @@ func valueHasCriticalSource(v any) bool {
 }
 
 // decodeDeviceConfig extracts device configuration and yaml details
-func decodeDeviceConfig(r io.Reader) (configReq, error) {
+func decodeDeviceConfig(r io.Reader, class templates.Class) (configReq, error) {
 	var res configReq
 
 	if err := json.NewDecoder(r).Decode(&res); err != nil {
@@ -579,17 +646,26 @@ func decodeDeviceConfig(r io.Reader) (configReq, error) {
 		return configReq{}, errors.New("invalid config: yaml only allowed for types " + strings.Join(customTypes, ", "))
 	}
 
-	if len(res.Other) != 0 {
-		return configReq{}, errors.New("invalid config: cannot mix yaml and other")
-	}
-
 	// validate yaml syntax; tolerate whitespace/comment-only input
 	var tmp map[string]any
 	if err := yaml.Unmarshal([]byte(res.Yaml), &tmp); err != nil {
 		return configReq{}, err
 	}
 
-	res.Other = map[string]any{"yaml": res.Yaml}
+	// circuit references are structured form fields, not yaml
+	if class == templates.Circuit {
+		for _, k := range []string{"parent", "meter"} {
+			if _, ok := tmp[k]; ok {
+				return configReq{}, fmt.Errorf("invalid config: '%s' must not be set in yaml", k)
+			}
+		}
+	}
+
+	// structured fields (e.g. references) are stored next to the yaml
+	if res.Other == nil {
+		res.Other = make(map[string]any)
+	}
+	res.Other["yaml"] = res.Yaml
 
 	return res, nil
 }

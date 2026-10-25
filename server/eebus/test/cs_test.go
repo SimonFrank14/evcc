@@ -1,6 +1,7 @@
 package eebus
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -18,9 +19,13 @@ import (
 
 const remotePort = 9001
 
-func TestEEBus(t *testing.T) {
+func TestMain(m *testing.M) {
+	// Configure logging before service goroutines can access the shared loggers.
 	util.LogLevel("error", map[string]string{"eebus": "trace"})
+	os.Exit(m.Run())
+}
 
+func TestEEBus(t *testing.T) {
 	certificate, err := cert.CreateCertificate("Demo", "Demo", "DE", "Demo-Server-01")
 	require.NoError(t, err, "certificate")
 
@@ -62,7 +67,7 @@ func TestEEBus(t *testing.T) {
 	_, err = box.uclpc.WriteConsumptionLimit(srvEntity, ucapi.LoadLimit{
 		IsActive: true,
 		Value:    1,
-	}, func(result model.ResultDataType) {
+	}, func(result model.ResultDataType, _ model.MsgCounterType) {
 		t.Logf("lpc result: %v", result)
 	})
 

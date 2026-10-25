@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"strings"
@@ -183,7 +184,7 @@ func (m *Client) ConnectionHandler(client paho.Client) {
 			token := m.listen(topic)
 			if !token.WaitTimeout(request.Timeout) {
 				m.log.ERROR.Printf("subscribe %s: timeout", topic)
-			} else if err := token.Error(); err != nil {
+			} else if err := subscribeError(token, topic); err != nil {
 				m.log.ERROR.Printf("subscribe %s: %v", topic, err)
 			}
 		}
@@ -224,7 +225,7 @@ func (m *Client) Cleanup(topic string, retained bool) error {
 }
 
 // Publish asynchronously publishes payload using client qos
-func (m *Client) Publish(topic string, retained bool, payload any) {
+func (m *Client) Publish(topic string, retained bool, payload string) {
 	connCtx := m.connContext()
 	go func() {
 		ctx, cancel := context.WithTimeout(connCtx, request.Timeout)
@@ -242,7 +243,7 @@ func (m *Client) Publish(topic string, retained bool, payload any) {
 			return
 		}
 
-		m.log.TRACE.Printf("send %s: '%v'", topic, payload)
+		m.log.TRACE.Printf("send %s: '%v'", topic, request.Truncate(payload))
 		token := m.client.Publish(topic, m.Qos, retained, payload)
 
 		select {
@@ -270,8 +271,24 @@ func (m *Client) Listen(topic string, callback func(string)) error {
 	case <-time.After(request.Timeout):
 		return fmt.Errorf("subscribe: %s: %w", topic, api.ErrTimeout)
 	case <-token.Done():
+		if err := subscribeError(token, topic); err != nil {
+			return fmt.Errorf("subscribe: %s: %w", topic, err)
+		}
 		return nil
 	}
+}
+
+// subscribeError returns the token error or an error if the broker refused the subscription
+func subscribeError(token paho.Token, topic string) error {
+	if err := token.Error(); err != nil {
+		return err
+	}
+
+	if st, ok := token.(*paho.SubscribeToken); ok && st.Result()[topic] == 0x80 {
+		return errors.New("refused by broker")
+	}
+
+	return nil
 }
 
 // ListenSetter creates a /set listener that resets the payload after handling
@@ -290,7 +307,7 @@ func (m *Client) ListenSetter(topic string, callback func(string) error) error {
 func (m *Client) listen(topic string) paho.Token {
 	token := m.client.Subscribe(topic, m.Qos, func(c paho.Client, msg paho.Message) {
 		payload := string(msg.Payload())
-		m.log.TRACE.Printf("recv %s: '%v'", topic, payload)
+		m.log.TRACE.Printf("recv %s: '%v'", topic, request.Truncate(payload))
 		if len(payload) > 0 {
 			m.mux.Lock()
 			callbacks := m.listener[topic]

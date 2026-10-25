@@ -21,7 +21,8 @@ params:
       de: IP-Adresse oder Hostname
       en: IP address or hostname
     example: 192.0.2.2
-    pattern:
+    service: network/hosts?template={template}
+    pattern: &host-pattern
       regex: "^[^\\/\\s]+(:[0-9]{1,5})?$" # any char except slash/space, optional :port
       examples: ["192.168.1.100", "example.com", "server.local:8080"]
   - name: ip
@@ -103,6 +104,14 @@ params:
       en: Used to determine the minimum solar surplus and plan duration.
     type: choice
     choice: ["1", "2", "3"]
+  - name: phases1p3p
+    type: bool
+    description:
+      en: Phase switching
+      de: Phasenumschaltung
+    help:
+      en: Charger is equipped with phase switching feature
+      de: Wallbox verfügt über Phasenumschaltung
   - name: connector
     type: int
     description:
@@ -130,6 +139,7 @@ params:
     example: 10s
     type: duration
   - name: mode
+    deprecated: true
     description:
       de: Standardlademodus
       en: Default charging mode
@@ -143,20 +153,22 @@ params:
       de: Minimaler Ladestand
       en: Minimum charge
     help:
-      de: Untere Grenze beim Entladen der Batterie im normalen Betrieb
-      en: Lower limit when discharging the battery in normal operation
+      de: Untere Grenze wie am Batteriesystem eingestellt. Wird vom Optimizer genutzt.
+      en: Lower limit as configured on the battery system. Used by optimizer.
     example: 25
+    default: 0
     type: int
-    usages: ["battery", "vehicle"]
+    usages: ["battery"]
   - name: maxsoc
     unit: "%"
     description:
       de: Maximaler Ladestand
       en: Maximum charge
     help:
-      de: Oberes Limit beim Laden der Batterie aus dem Netz
-      en: Upper limit when charging the battery from the grid
+      de: Obere Grenze wie am Batteriesystem eingestellt. Wird vom Optimizer und für Netzladen genutzt.
+      en: Upper limit as configured on the battery system. Used by optimizer and for grid charging.
     example: 95
+    default: 100
     type: int
     usages: ["battery"]
   - name: mincurrent
@@ -452,6 +464,7 @@ params:
     description:
       generic: Token
   - name: interval
+    type: duration
     description:
       de: Intervall
       en: Interval
@@ -487,6 +500,7 @@ params:
       en: Battery storage unit index
       de: Nummer des Batteriespeichers
   - name: delay
+    type: duration
     description:
       en: Delay
       de: Verzögerung
@@ -513,6 +527,9 @@ params:
     description:
       generic: API Key
     mask: true
+  - name: siteid
+    description:
+      generic: Site ID
   - name: tempsource
     description:
       de: Temperaturquelle
@@ -730,6 +747,21 @@ presets:
   ocpp:
     - name: stationid
     - name: connector
+    - name: chargingprofile
+      advanced: true
+      type: choice
+      choice: ["TxDefaultProfile", "TxProfile"]
+      default: TxDefaultProfile
+      description:
+        de: Ladeprofiltyp
+        en: Charging profile type
+      help:
+        de: |
+          TxProfile nur verwenden, wenn die Wallbox Änderungen an TxDefaultProfile während einer laufenden Transaktion ignoriert. Ohne Transaktion wird weiterhin TxDefaultProfile verwendet; eine laufende Transaktion muss ihre ID melden.
+          TxProfile endet mit der Transaktion. Das Standardprofil wird beim nächsten Regelzyklus wiederhergestellt. Ist evcc dabei offline, kann die Wallbox bis zur Wiederverbindung ohne dieses Limit laden.
+        en: |
+          Use TxProfile only if the charger ignores TxDefaultProfile changes during an active transaction. Without a transaction, TxDefaultProfile is still used; an active transaction must report its ID.
+          TxProfile expires with its transaction. The default profile is restored on the next control cycle. If evcc is offline then, the charger may charge without this limit until it reconnects.
     - name: remotestart
       advanced: true
       type: bool
@@ -788,8 +820,8 @@ presets:
   mqtt:
     - name: host
       help:
-        de: IP Adresse oder der Hostname des MQTT Brokers
-        en: IP address or hostname of the MQTT broker
+        de: IP Adresse oder der Hostname des MQTT Brokers. Leer lassen, um den MQTT Broker von evcc zu verwenden.
+        en: IP address or hostname of the MQTT broker. Leave empty to use the evcc MQTT broker.
       pattern:
         regex: "^(tls://)?[^\\/\\s]+(:[0-9]{1,5})?$" # optional tls:// prefix, any char except slash/space, optional :port
         examples:
@@ -809,6 +841,8 @@ presets:
       help:
         de: Topic (ohne / am Anfang)
         en: Topic (omit leading /)
+
+  mqtt-timeout:
     - name: timeout
       default: 30s
       help:
@@ -819,6 +853,17 @@ presets:
     - name: capacity
     - name: minsoc
     - name: maxsoc
+    - name: maxchargepower
+    - name: maxdischargepower
+
+  battery-capacity:
+    - name: capacity
+
+  battery-minmaxsoc:
+    - name: minsoc
+    - name: maxsoc
+
+  battery-power:
     - name: maxchargepower
     - name: maxdischargepower
 
@@ -865,6 +910,14 @@ modbus:
         en: Port
       default: 502
       type: int
+    - name: delay
+      help:
+        de: Wartezeit vor jedem Registerzugriff
+        en: Wait time before each register access
+      type: duration
+      advanced: true
+    - name: timeout
+      advanced: true
   types:
     rs485serial:
       description:
@@ -874,30 +927,41 @@ modbus:
         - name: device
         - name: baudrate
         - name: comset
+        - name: delay
+        - name: timeout
     rs485tcpip:
       description:
         generic: Serial (Ethernet-RS485 Adapter)
       params:
         - name: id
         - name: host
+          pattern: *host-pattern
         - name: port
           default: 502
+        - name: delay
+        - name: timeout
     tcpip:
       description:
         generic: TCP/IP
       params:
         - name: id
         - name: host
+          pattern: *host-pattern
         - name: port
           default: 502
+        - name: delay
+        - name: timeout
     udp:
       description:
         generic: UDP
       params:
         - name: id
         - name: host
+          pattern: *host-pattern
         - name: port
           default: 502
+        - name: delay
+        - name: timeout
 
 devicegroups:
   generic:
@@ -924,3 +988,6 @@ devicegroups:
   solar:
     de: PV Vorhersage
     en: PV forecast
+  temperature:
+    de: Temperaturvorhersage
+    en: Temperature forecast
